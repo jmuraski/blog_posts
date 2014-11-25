@@ -1,6 +1,6 @@
 # Docker
 
-As my project started up I was looking for a good way to create my application and run it locally and on servers. I was looking into different technologies like Chef, Puppet and Salt but when I went to start up my Digital Ocean server it had  another option I hadn't heard much about. I could create an Image with Docker. Since I didn't know what this was I decided to look into it.
+As my project started up I was looking for a good way to create my application and run it locally and on servers. I was looking into different technologies like Chef, Puppet and Salt but when I went to start up my Digital Ocean server it had another option I hadn't heard much about. I could create an Image with Docker. Since I didn't know what this was I decided to look into it.
 
 ## What is Docker
 The definition from their website is
@@ -27,14 +27,14 @@ MAINTAINER Joseph Muraski
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 
 # Add PostgreSQL's repository. It contains the most recent stable release
-#     of PostgreSQL, ``9.3``.
+#   of PostgreSQL, ``9.3``.
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ precise-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
 # Update the Ubuntu and PostgreSQL repository indexes
 RUN apt-get update
 
 # Install ``python-software-properties``, ``software-properties-common`` and PostgreSQL 9.3
-#  There are some warnings (in red) that show up during the build. You can hide
+# There are some warnings (in red) that show up during the build. You can hide
 #  them by prefixing each apt-get statement with DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y -q install python-software-properties software-properties-common
 RUN apt-get -y -q install postgresql-9.3 postgresql-client-9.3 postgresql-contrib-9.3
@@ -48,8 +48,8 @@ USER postgres
 # Create a PostgreSQL role named ``docker`` with ``docker_pass`` as the password and
 # then create a database `docker_local_db` owned by the ``docker`` role.
 # Note: here we use ``&&\`` to run commands one after the other - the ``\``
-#       allows the RUN command to span multiple lines.
-RUN    /etc/init.d/postgresql start &&\
+#     allows the RUN command to span multiple lines.
+RUN   /etc/init.d/postgresql start &&\
 psql --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker_pass';" &&\
 createdb -O docker docker_local_db
 
@@ -69,7 +69,21 @@ VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 # Set the default command to run when starting the container
 CMD ["/usr/lib/postgresql/9.3/bin/postgres", "-D", "/var/lib/postgresql/9.3/main", "-c", "config_file=/etc/postgresql/9.3/main/postgresql.conf"]
 ```
-This Dokcerfile does a few things, it install postgresql, sets up the users, the db. EXPOSE 5432 allows docker to expose the port outside the container. The VOLUME line allows for access to the data in those directories outside of the container, it also allows for other containers to use the folders. Finally CMD is the command that is run when the container is started.
+This Dockerfile does a few things, it installs postgresql, exposes port 5432 outside of the container and maps some shared volumes. Lets go over some of the commands that are used and what they are used for.
+- [FROM](https://docs.docker.com/reference/builder/#from) - This sets the base image for the file. It can be a bare linux install like ubuntu or a fully crafted image that someone has shared in a docker repository.
+- [MAINTAINER](https://docs.docker.com/reference/builder/#maintainer) - This is a field to say who created this docker file
+- [RUN](https://docs.docker.com/reference/builder/#run) - is the way you tell docker to RUN a command agianst the container. This can be any unix command such as apt-get install, curl, wget, or chmod
+- [USER](https://docs.docker.com/reference/builder/#user) - Sets the user to run subsequent commands as
+- [EXPOSE](https://docs.docker.com/reference/builder/#expose) - Has docker expose these ports
+- [CMD](https://docs.docker.com/reference/builder/#cmd) - Provides the default for executing the container
+
+Commands that are not used in this Dockerfile but that I have used frequently are
+- [ADD](https://docs.docker.com/reference/builder/#add) - Adds files to the docker file system, these can be from a url, tar or zip file
+- [COPY](https://docs.docker.com/reference/builder/#copy) - similar to add but only copies the files over, they have to be files, not urls and will not unzip or untar a file
+- [ENV](https://docs.docker.com/reference/builder/#env) - Allows you to set environment variables inside the container. This command can be used to alter PATH also.
+
+
+You can get a complete list of Dockerfile commands from the [documentation](https://docs.docker.com/reference/builder/) the Digital Ocean article [Docker Explained: Using Dockerfiles to Automate Building of Images](https://www.digitalocean.com/community/tutorials/docker-explained-using-dockerfiles-to-automate-building-of-images) the [Best practices for writing Dockerfiles](https://docs.docker.com/articles/dockerfile_best-practices/) from the Docker documentation and this good guide [Guidance for Docker Image Authors](http://www.projectatomic.io/docs/docker-image-author-guidance/). There are also numerous other articles and tips on how to write a good Dockerfile.
 
 ### Create Build Script
 Here is a bash script that is used to create the image.
@@ -78,7 +92,7 @@ Here is a bash script that is used to create the image.
 #!/bin/sh
 docker build -t db_server/postgresql .
 ```
-This very simple file in the same location as the Dockerfile will create the image with the name db_server/postgresql.
+This very simple file in the same location as the Dockerfile will create the image with the name db_server/postgresql. For more options on the docker build command you can read the [command line reference](https://docs.docker.com/reference/commandline/cli/#build).
 
 ### Map the Ports
 Since boot2docker runs in Virtual Box you will need to map the ports out so that you can connect to them locally. This script maps port 49155 from the Virtual Box instance to 5432 on the host machine.
@@ -90,12 +104,13 @@ VBoxManage modifyvm "boot2docker-vm" --natpf1 "udp-port-dockerDb49155,udp,,5432,
 ```
 
 ### Create Container
-As of Docker 1.3 you can create the container without running it. Before this you would have to run the container one way the first time and then use docker start on subsequent starts. Now you can use docker create then just start the container every time.
+As of Docker 1.3 you can use [docker create](https://docs.docker.com/reference/commandline/cli/#create) to create the container without running it. Before this you would have to run the container one way the first time and then use docker start on subsequent starts. Now you can use docker create then just start the container every time.
 ```
 #!/bin/sh
 
 docker create -d -p 49155:5432 -P --name dockerServerDb db_server/postgresql
 ```
+
 
 ### Start Docker
 ```
